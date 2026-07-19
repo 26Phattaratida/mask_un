@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teachable Machine Image Model</title>
-    
-    <!-- นำเข้าฟอนต์ Google Font เพื่อความสวยงาม -->
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
     
     <style>
@@ -33,14 +31,12 @@
             width: 100%;
             max-width: 450px;
             text-align: center;
-            transition: all 0.3s ease;
         }
 
         h2 {
             color: #333;
             margin-bottom: 8px;
             font-weight: 600;
-            font-size: 1.5rem;
         }
 
         .subtitle {
@@ -49,7 +45,6 @@
             margin-bottom: 25px;
         }
 
-        /* ปุ่มกดสไตล์โมเดิร์น */
         .btn-start {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -61,7 +56,6 @@
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
             transition: all 0.2s ease;
-            outline: none;
         }
 
         .btn-start:hover {
@@ -69,11 +63,6 @@
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
         }
 
-        .btn-start:active {
-            transform: translateY(1px);
-        }
-
-        /* จัดการกรอบ Webcam ให้ดูโปร */
         #webcam-container {
             margin: 25px auto;
             border-radius: 15px;
@@ -85,7 +74,6 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            position: relative;
         }
 
         #webcam-container canvas {
@@ -94,7 +82,6 @@
             object-fit: cover;
         }
 
-        /* กล่องแสดงผลลัพธ์การทำนาย */
         #label-container {
             margin-top: 20px;
             display: flex;
@@ -113,7 +100,6 @@
             border-left: 5px solid #667eea;
             font-weight: 500;
             color: #4a5568;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
         }
 
         .probability-badge {
@@ -130,20 +116,14 @@
 
 <div class="card">
     <h2>Teachable Machine</h2>
-    <p class="subtitle">ระบบวิเคราะห์รูปภาพผ่าน AI (อัปเดตทุก 3 วินาที)</p>
+    <p class="subtitle">ระบบวิเคราะห์รูปภาพ (อัปเดตผลทุก 3 วินาที)</p>
     
     <button type="button" class="btn-start" onclick="init()">เริ่มเปิดกล้อง</button>
     
-    <div id="webcam-container">
-        <!-- กล้องจะแสดงตรงนี้ -->
-    </div>
-    
-    <div id="label-container">
-        <!-- ผลลัพธ์จะแสดงตรงนี้ -->
-    </div>
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
 </div>
 
-<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
@@ -151,10 +131,10 @@
     const URL = "https://teachablemachine.withgoogle.com/models/sDX-ni7mk/";
 
     let model, webcam, labelContainer, maxPredictions;
-    let lastPredictTime = 0; // ตัวแปรเก็บเวลาล่าสุดที่ทำนายผล
+    let currentPredictions = []; // เก็บค่าทำนายล่าสุดเอาไว้
 
     async function init() {
-        // ซ่อนปุ่มเริ่มหลังจากกด เพื่อป้องกันการกดซ้ำ
+        // ซ่อนปุ่มเมื่อกดเพื่อความสวยงาม
         document.querySelector('.btn-start').style.display = 'none';
 
         const modelURL = URL + "model.json";
@@ -163,7 +143,6 @@
         model = await tmImage.load(modelURL, metadataURL);
         maxPredictions = model.getTotalClasses();
 
-        // ตั้งค่าเว็บแคม (ปรับขนาดการแสดงผลให้เข้ากับดีไซน์ใหม่เป็น 250x250)
         const flip = true; 
         webcam = new tmImage.Webcam(250, 250, flip); 
         await webcam.setup(); 
@@ -174,34 +153,37 @@
         document.getElementById("webcam-container").appendChild(webcam.canvas);
         labelContainer = document.getElementById("label-container");
         
-        // สร้างโครงสร้างกล่องข้อความรอไว้ล่วงหน้าเพื่อความสวยงาม
+        // สร้างหน้าตาข้อความรอก่อนเริ่มต้น
         for (let i = 0; i < maxPredictions; i++) {
             const itemDiv = document.createElement("div");
             itemDiv.className = "prediction-item";
-            itemDiv.innerHTML = `<span>กำลังโหลด...</span><span class="probability-badge">0.00</span>`;
+            itemDiv.innerHTML = `<span>กำลังรอวิเคราะห์...</span><span class="probability-badge">0.00</span>`;
             labelContainer.appendChild(itemDiv);
         }
+
+        // เรียกให้ฟังก์ชันแสดงผลทำงานทุกๆ 3 วินาที (3000 มิลลิวินาที)
+        setInterval(updateUI, 3000);
     }
 
-    async function loop(timestamp) {
-        webcam.update(); // อัปเดตเฟรมของกล้องให้ลื่นไหลตลอดเวลา
-        
-        // ตรวจสอบว่าเวลาผ่านไปครบ 3,000 มิลลิวินาที (3 วินาที) หรือยัง
-        if (timestamp - lastPredictTime >= 3000) {
-            await predict();
-            lastPredictTime = timestamp; // บันทึกเวลาที่ทำนายล่าสุด
-        }
-        
+    async function loop() {
+        webcam.update(); 
+        await predict(); // ให้ทำนายในระบบหลังบ้านตลอดเวลาเพื่อให้โมเดลทำงานได้ราบรื่น
         window.requestAnimationFrame(loop);
     }
 
     async function predict() {
-        const prediction = await model.predict(webcam.canvas);
+        // เซฟผลลัพธ์ที่ได้จากการทำนายเก็บไว้ในตัวแปร
+        currentPredictions = await model.predict(webcam.canvas);
+    }
+
+    // ฟังก์ชันนี้จะถูกเรียกทุก 3 วินาที เพื่อดึงค่าล่าสุดมาแสดงบนหน้าจอ
+    function updateUI() {
+        if (currentPredictions.length === 0) return;
+        
         for (let i = 0; i < maxPredictions; i++) {
-            const className = prediction[i].className;
-            const probability = prediction[i].probability.toFixed(2);
+            const className = currentPredictions[i].className;
+            const probability = currentPredictions[i].probability.toFixed(2);
             
-            // อัปเดตข้อมูลเข้าไปในคลาส UI ที่เราดีไซน์ไว้
             labelContainer.childNodes[i].innerHTML = `
                 <span>${className}</span>
                 <span class="probability-badge">${probability}</span>
