@@ -39,13 +39,13 @@
             labelContainer.appendChild(document.createElement("div"));
         }
 
-        // สั่งให้เริ่มทำนายผลทุกๆ 3 วินาที (3000 มิลลิวินาที) หลังจากเปิดกล้องแล้ว
+        // --- เพิ่มเติมส่วนนี้: สั่งให้กล้องทำงานเรียกฟังก์ชันทำนายทุกๆ 3 วินาที (3000 มิลลิวินาที) ---
         setInterval(predict, 3000);
     }
 
     async function loop() {
         webcam.update(); // update the webcam frame
-        // เอา await predict(); ออกจากตรงนี้ เพื่อไม่ให้รันรัวๆ ทุกเฟรม
+        // --- แก้ไขตรงนี้: เอา await predict(); ออก เพื่อไม่ให้เรียกใช้กล้องรัวๆ ทุกวินาที ---
         window.requestAnimationFrame(loop);
     }
 
